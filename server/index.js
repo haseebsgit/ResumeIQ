@@ -6,12 +6,11 @@ const cors = require('cors');
 const Groq = require('groq-sdk');
 
 const app = express();
-// Render will automatically inject a PORT, so process.env.PORT is mandatory
 const PORT = process.env.PORT || 5000;
 
-// Enable CORS for your production frontend and local development
+// Optimized CORS for Vercel
 app.use(cors({
-    origin: '*', // For easy deployment, allows all origins. You can restrict this to your Vercel URL later.
+    origin: '*', 
     methods: ['GET', 'POST'],
     credentials: true
 }));
@@ -21,11 +20,13 @@ app.use(express.json());
 const upload = multer({ storage: multer.memoryStorage() });
 
 if (!process.env.GROQ_API_KEY) {
-    console.error("❌ ERROR: GROQ_API_KEY is missing from environment variables!");
-    process.exit(1);
+    console.error("❌ ERROR: GROQ_API_KEY is missing!");
 }
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// Health check route
+app.get('/', (req, res) => res.send("ResumeIQ API is running..."));
 
 app.post('/analyze', upload.single('resume'), async (req, res) => {
     try {
@@ -34,8 +35,6 @@ app.post('/analyze', upload.single('resume'), async (req, res) => {
         if (!req.file) {
             return res.status(400).json({ error: "No file uploaded" });
         }
-
-        console.log("📄 Processing file:", req.file.originalname);
 
         let resumeText = "";
         try {
@@ -46,11 +45,8 @@ app.post('/analyze', upload.single('resume'), async (req, res) => {
                 throw new Error("PDF content unreadable.");
             }
         } catch (pdfError) {
-            console.error("❌ PDF Error:", pdfError.message);
-            return res.status(422).json({ error: "Failed to parse PDF. Ensure it's not a scanned image." });
+            return res.status(422).json({ error: "Failed to parse PDF." });
         }
-
-        console.log("🤖 Groq analysis in progress...");
 
         const chatCompletion = await groq.chat.completions.create({
             messages: [
@@ -66,8 +62,8 @@ app.post('/analyze', upload.single('resume'), async (req, res) => {
                     RESUME: "${resumeText.substring(0, 8000)}"
 
                     CRITICAL INSTRUCTIONS FOR SCORING:
-                    1. All scores MUST be WHOLE INTEGERS between 0 and 100. (Never use decimals like 0.95).
-                    2. Be realistic: A strong match should be between 80-98. A perfect match is 100.
+                    1. All scores MUST be WHOLE INTEGERS between 0 and 100.
+                    2. Be realistic: A strong match should be between 80-98.
                     3. If the candidate has the required experience and skills, do not score them below 70.
 
                     Return ONLY this JSON structure:
@@ -103,7 +99,6 @@ app.post('/analyze', upload.single('resume'), async (req, res) => {
             }
         }
 
-        console.log("✅ Analysis complete! Score:", result.score);
         res.json(result);
 
     } catch (error) {
@@ -112,7 +107,13 @@ app.post('/analyze', upload.single('resume'), async (req, res) => {
     }
 });
 
-// Render requires listening on 0.0.0.0
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server spinning on port ${PORT}`);
-});
+// --- VERCEL DEPLOYMENT FIX ---
+// This ensures the app only 'listens' when running locally.
+// Vercel handles the listener in production.
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log(`🚀 Local server spinning on port ${PORT}`);
+    });
+}
+
+module.exports = app;
