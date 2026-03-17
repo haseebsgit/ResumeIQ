@@ -2,7 +2,7 @@
 
 ResumeIQ is a full-stack AI application designed to help job seekers optimize their resumes. By leveraging the **Groq Llama 3.3-70b** model, it provides instant, professional ATS-style scoring and feedback based on specific job descriptions.
 
-### 🌐 [Live Demo Link]([YOUR_FRONTEND_URL])
+### 🌐 [Live Demo Link](https://resume-iq-client.vercel.app/)
 
 ---
 
